@@ -19,6 +19,9 @@ All write and remove requests to NSUserDefaults are automatically synchronized w
 
 To respond to updates from iCloud you can observe the `FTiCloudSyncDidUpdateNotification`. It contains the `NSUserDefaults` object and in the `userInfo` a dictionary with `FTiCloudSyncChangedKeys` and `FTiCloudSyncRemovedKeys`. These are arrays of the changed and removed keys.
 
+<a href="https://flattr.com/thing/799300/futuretapiTunesFeaturedCheck-on-GitHub" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a>
+
 Compatibility
 -------------
 FTiCloudSync is compatible with [InAppSettingsKit](http://www.inappsettingskit.com), a framework to easily add in-app settings to iPhone apps. InAppSettingsKit automatically updates the UI when an iCloud update is received.
