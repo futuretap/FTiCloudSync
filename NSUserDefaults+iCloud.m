@@ -38,7 +38,7 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 
 + (void)updateFromiCloud:(NSNotification*)notificationObject {
 	if ([[[notificationObject userInfo] objectForKey:NSUbiquitousKeyValueStoreChangeReasonKey] intValue] == NSUbiquitousKeyValueStoreQuotaViolationChange) {
-		DJLog(@"NSUbiquitousKeyValueStoreQuotaViolationChange");
+		NSLog(@"NSUbiquitousKeyValueStoreQuotaViolationChange");
 	}
 	NSMutableArray *changedKeys = [NSMutableArray array];
 	NSMutableArray *removedKeys = nil;
@@ -99,3 +99,5 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 		});
 	}
 }
+
+@end
