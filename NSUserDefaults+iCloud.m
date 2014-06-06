@@ -72,7 +72,7 @@ NSString* FTiCloudIgnoreListRegex = @"";
 - (void)my_setObject:(id)object forKey:(NSString *)key {
 	BOOL equal = [[self objectForKey:key] isEqual:object];
 	[self my_setObject:object forKey:key];
-	if (!equal && ![key isMatchedByRegex:iCloudBlacklistRegex] && ![key isMatchedByRegex:FTiCloudIgnoreListRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
+	if (!equal && ![key isMatchedByRegex:iCloudBlacklistRegex] && ![key isMatchedByRegex:FTiCloudIgnoreListRegex] && [NSUbiquitousKeyValueStore defaultStore] && [key length] <= 64) {
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
 			[[NSUbiquitousKeyValueStore defaultStore] setObject:object forKey:key];
 		});
@@ -83,7 +83,7 @@ NSString* FTiCloudIgnoreListRegex = @"";
 	BOOL exists = !![self objectForKey:key];
 	[self my_removeObjectForKey:key]; // call original implementation
 	
-	if (exists && ![key isMatchedByRegex:iCloudBlacklistRegex] && ![key isMatchedByRegex:FTiCloudIgnoreListRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
+	if (exists && ![key isMatchedByRegex:iCloudBlacklistRegex] && ![key isMatchedByRegex:FTiCloudIgnoreListRegex] && [NSUbiquitousKeyValueStore defaultStore]  && [key length] <= 64) {
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
 			[[NSUbiquitousKeyValueStore defaultStore] removeObjectForKey:key];
 		});
