@@ -19,6 +19,7 @@ NSString* const FTiCloudSyncDidUpdateNotification = @"FTiCloudSyncDidUpdateNotif
 NSString* const FTiCloudSyncChangedKeys = @"changedKeys";
 NSString* const FTiCloudSyncRemovedKeys = @"removedKeys";
 NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOfVersionInstallation|^MF|^NS|Quincy|^BIT|^TV|UsageTime|^Web|preferredLocaleIdentifier)";
+NSString* const FTiCloudSyncControlKey = @"!FTiCloudSyncEnabled";
 
 @implementation NSUserDefaults(Additions)
 
@@ -40,28 +41,31 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 	if ([[[notificationObject userInfo] objectForKey:NSUbiquitousKeyValueStoreChangeReasonKey] intValue] == NSUbiquitousKeyValueStoreQuotaViolationChange) {
 		NSLog(@"NSUbiquitousKeyValueStoreQuotaViolationChange");
 	}
+    
 	NSMutableArray *changedKeys = [NSMutableArray array];
 	NSMutableArray *removedKeys = nil;
 	@synchronized(self) {
 		NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 		NSDictionary *dict = [[NSUbiquitousKeyValueStore defaultStore] dictionaryRepresentation];
-
-		[dict enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
-			if (![key isMatchedByRegex:iCloudBlacklistRegex] && ![[defaults valueForKey:key] isEqual:obj]) {
-				[defaults my_setObject:obj forKey:key]; // call original implementation
-				[changedKeys addObject:key];
-			}
-		}];
-		
-		removedKeys = [NSMutableArray arrayWithArray:[defaults dictionaryRepresentation].allKeys];
-		[removedKeys removeObjectsInArray:dict.allKeys];
-		[removedKeys enumerateObjectsUsingBlock:^(id key, NSUInteger idx, BOOL *stop) {
-			if (![key isMatchedByRegex:iCloudBlacklistRegex]) {
-				[defaults my_removeObjectForKey:key]; // non-swizzled/original implementation
-			}
-		}];
-		
-		[defaults my_synchronize];  // call original implementation (don't sync with iCloud again)
+        
+        if ([defaults shouldSynchronise]) {
+            [dict enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+                if (![key isMatchedByRegex:iCloudBlacklistRegex] && ![[defaults valueForKey:key] isEqual:obj]) {
+                    [defaults my_setObject:obj forKey:key]; // call original implementation
+                    [changedKeys addObject:key];
+                }
+            }];
+            
+            removedKeys = [NSMutableArray arrayWithArray:[defaults dictionaryRepresentation].allKeys];
+            [removedKeys removeObjectsInArray:dict.allKeys];
+            [removedKeys enumerateObjectsUsingBlock:^(id key, NSUInteger idx, BOOL *stop) {
+                if (![key isMatchedByRegex:iCloudBlacklistRegex]) {
+                    [defaults my_removeObjectForKey:key]; // non-swizzled/original implementation
+                }
+            }];
+            
+            [defaults my_synchronize];  // call original implementation (don't sync with iCloud again)
+        }
 	}
     [[NSNotificationCenter defaultCenter] postNotificationName:FTiCloudSyncDidUpdateNotification
 														object:self
@@ -71,7 +75,7 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 - (void)my_setObject:(id)object forKey:(NSString *)key {
 	BOOL equal = [[self objectForKey:key] isEqual:object];
 	[self my_setObject:object forKey:key];
-	if (!equal && ![key isMatchedByRegex:iCloudBlacklistRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
+	if (!equal && [self shouldSynchronise] && ![key isMatchedByRegex:iCloudBlacklistRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
 			[[NSUbiquitousKeyValueStore defaultStore] setObject:object forKey:key];
 		});
@@ -82,7 +86,7 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 	BOOL exists = !![self objectForKey:key];
 	[self my_removeObjectForKey:key]; // call original implementation
 	
-	if (exists && ![key isMatchedByRegex:iCloudBlacklistRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
+	if (exists && [self shouldSynchronise] && ![key isMatchedByRegex:iCloudBlacklistRegex] && [NSUbiquitousKeyValueStore defaultStore]) {
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
 			[[NSUbiquitousKeyValueStore defaultStore] removeObjectForKey:key];
 		});
@@ -91,13 +95,17 @@ NSString* const iCloudBlacklistRegex = @"(^!|^Apple|^ATOutputLevel|Hockey|DateOf
 
 - (void)my_synchronize {
 	[self my_synchronize]; // call original implementation
-	if ([NSUbiquitousKeyValueStore defaultStore]) {
-		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-			if(![[NSUbiquitousKeyValueStore defaultStore] synchronize]) {
-				NSLog(@"iCloud sync failed");
-			}
-		});
-	}
+	
+    if ([self shouldSynchronise] && [NSUbiquitousKeyValueStore defaultStore]) {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+            if(![[NSUbiquitousKeyValueStore defaultStore] synchronize]) {
+                NSLog(@"iCloud sync failed");
+            }
+        });
+    }
 }
 
+- (bool) shouldSynchronise {
+   return [[self objectForKey:FTiCloudSyncControlKey] boolValue];
+}
 @end
